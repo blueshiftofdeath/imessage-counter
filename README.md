@@ -1,7 +1,7 @@
 # imessage-counter
 Displays how many words you and your friend sent to each other per day in a simple graph.
 
-Usage: python imessageCounter.py <name of friend> <phone number or email address of contact> [--word=<word>] [--interval=<number>] [--percent=<percent>]
+Usage: python imessageCounter.py [name of friend] [phone number or email address of contact] --word=[word] --interval=[number] --percent=[percent]
 
 1. The name of the friend is what will appear on the legend.
 2. The phone number or email address is what you are sending your messages to; in most cases it will be the phone number. If the phone number in question is (xxx)-xxx-xxxx and is in the USA, type it as +1xxxxxxxxxx .
