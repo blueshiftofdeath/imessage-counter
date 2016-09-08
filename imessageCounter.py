@@ -3,7 +3,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-import datetime, sqlite3, csv, os, sys
+import datetime, sqlite3, os
 from datetime import timedelta
 from itertools import groupby
 from matplotlib.dates import DayLocator, MonthLocator, WeekdayLocator
