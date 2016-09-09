@@ -10,21 +10,29 @@ from matplotlib.dates import DayLocator, MonthLocator, WeekdayLocator
 from matplotlib.dates import AutoDateFormatter, DateFormatter
 import argparse
 
+#convert timestamp into datetime object
 def std_time(stamp):
     basetime_offset = datetime.datetime(2000, 12, 31, 0, 0, 0)
     timezone_offset = 1
     date = basetime_offset + timedelta(timezone_offset, stamp)
     return datetime.date(date.year, date.month, date.day)
 
+#take list of (date, wordCount) tuples and combine tuples with same date
+#summing wordCounts
 def std_list(L):
     L = groupby(L, key = lambda x: x[0])
-    counts = []
+    counts = {}
     for k,g in L:
-        counts.append((k, sum(map(lambda x: x[1], g))))
-    return counts
+        wordCount = sum(map(lambda x: x[1], g))
+        if k in counts:
+            counts[k] += wordCount
+        else:
+            counts[k] = wordCount
+    return list(map(lambda k: (k, counts[k]), counts.keys()))
 
+#target list contains all dates that source contains
 def fill_points(target, source):
-    target_points = map(lambda row: row[0], target)
+    target_points = set(map(lambda row: row[0], target))
     for point in source:
         if point[0] not in target_points:
             target.append((point[0], 0))
@@ -47,7 +55,7 @@ def queryMessages(handle, dbName, percent, word=None):
         """.format(handleFormat(handle))
     )
     result = c.fetchall()
-
+    result.sort()
     result = result[int(percent*len(result)):] #only want recent content
 
     def word_count(text):
