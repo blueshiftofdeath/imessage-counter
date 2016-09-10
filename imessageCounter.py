@@ -64,7 +64,6 @@ def queryMessages(handle, dbName, wordsToCount, split, direction, start, end):
         """.format(handleFormat(handle))
     )
     result = c.fetchall()
-    result = result[int(percent*len(result)):] #only want recent content
 
     def word_count(text):
         if text is None:
@@ -161,11 +160,6 @@ parser.add_argument('-direction', choices=['to','from'],
 args = parser.parse_args()
 
 path = os.path.expanduser('~') + '/Library/Messages/chat.db'
-
-if args.percent is not None:
-    percent = args.percent
-else:
-    percent = 0
 
 if args.interval is not None:
     interval = args.interval
