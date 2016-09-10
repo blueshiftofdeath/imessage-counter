@@ -47,10 +47,10 @@ def handleFormat(handles):
 def zoom(data, start, end):
     if start is not None:
         start = datetime.date(start[0], start[1], start[2])
-        data = filter(lambda row: row[0] > start, data)
+        data = filter(lambda row: row[0] >= start, data)
     if end is not None:
         end = datetime.date(end[0], end[1], end[2])
-        data = filter(lambda row: row[0] < end, data)
+        data = filter(lambda row: row[0] <= end, data)
     return sorted(list(data))
 
 def queryMessages(handle, dbName, wordsToCount, split, direction, start, end):
