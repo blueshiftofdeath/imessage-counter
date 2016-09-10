@@ -28,7 +28,7 @@ def std_list(L):
             counts[k] += wordCount
         else:
             counts[k] = wordCount
-    return list(map(lambda k: (k, counts[k]), counts.keys()))
+    return sorted(list(map(lambda k: (k, counts[k]), counts.keys())))
 
 #target list contains all dates that source contains
 def fill_points(target, source):
@@ -44,7 +44,16 @@ def handleFormat(handles):
     else:
         return " OR handle_id = ".join(list(map(str, handles)))
 
-def queryMessages(handle, dbName, percent, word=None):
+def zoom(data, start, end):
+    if start is not None:
+        start = datetime.date(start[0], start[1], start[2])
+        data = filter(lambda row: row[0] > start, data)
+    if end is not None:
+        end = datetime.date(end[0], end[1], end[2])
+        data = filter(lambda row: row[0] < end, data)
+    return sorted(list(data))
+
+def queryMessages(handle, dbName, wordsToCount, split, direction, start, end):
     conn = sqlite3.connect(dbName)
     c = conn.cursor()
     c.execute(
@@ -55,38 +64,47 @@ def queryMessages(handle, dbName, percent, word=None):
         """.format(handleFormat(handle))
     )
     result = c.fetchall()
-    result.sort()
     result = result[int(percent*len(result)):] #only want recent content
 
     def word_count(text):
         if text is None:
             return 0
         words = text.split()
-        if word is not None:
-            if " " in word:
-                return text.count(word)
-            else:
-                words = list(filter(lambda x: x.lower() == word, words))
-        return len(words)
+        if wordsToCount is not None:
+            count = 0
+            for w in wordsToCount:
+                if " " in w:
+                    count += text.count(w)
+                else:
+                    count += len(list(filter(lambda x: x.lower() == w, words)))
+            return count
+        else:
+            return len(words)
 
-    result = map(lambda row: (std_time(row[0]), word_count(row[1]), row[2]), result)
-    me = std_list([row[:2] for row in result if row[2] == 1])
-    other = std_list([row[:2] for row in result if row[2] == 0])
+    result = zoom(map(lambda row: (std_time(row[0]), word_count(row[1]), row[2]), result), start, end)
 
-    fill_points(me, other)
-    fill_points(other, me)
-    return (me, other)
+    if split:
+        me = std_list([row[:2] for row in result if row[2] == 1])
+        other = std_list([row[:2] for row in result if row[2] == 0])
+        fill_points(me, other)
+        fill_points(other, me)
+        return (me, other)
+    else:
+        if direction is not None:
+            return std_list([row[:2] for row in result if row[2] == (direction == 'to')])
+        else:
+            return std_list([row[:2] for row in result])
 
-def plot(L1, L2, alt, interval):
-    dates1 = [q[0] for q in L1]
-    opens1 = [q[1] for q in L1]
+def addPlot(ax, dataList):
+    (label, L) = dataList
+    dates = [q[0] for q in L]
+    count = [q[1] for q in L]
+    ax.plot_date(dates, count, '-', label=label)
 
-    dates2 = [q[0] for q in L2]
-    opens2 = [q[1] for q in L2]
-
+def plot(dataLists, interval):
     fig, ax = plt.subplots()
-    ax.plot_date(dates1, opens1, '-', label='me')
-    ax.plot_date(dates2, opens2, '-', label=alt)
+    for dataList in dataLists:
+        addPlot(ax, dataList)
     if type(interval) == int:
         # every day
         locator = DayLocator(interval=interval)
@@ -123,16 +141,22 @@ def getHandles(address, dbName):
     return list(map(lambda x: x[0], c.fetchall()))
 
 parser = argparse.ArgumentParser(description='Process some integers.')
-parser.add_argument('label', metavar='label', type=str,
-                    help='name of person to put in legend')
-parser.add_argument('address', metavar='address', type=str,
-                    help='phone number or email address used in chat')
-parser.add_argument('--word', metavar='word', type=str,
-                    help='word to count', required=False)
-parser.add_argument('--percent', metavar='percent', type=float,
-                    help='how many logs to skip', required=False)
+parser.add_argument('--people', metavar='people', type=str, nargs='*',
+                    help='name and address of person to put in legend,\
+                          where address is phone number or email address used in chat',
+                    required=False)
+parser.add_argument('--words', metavar='words', type=str, nargs='*',
+                    help='words to count', required=False)
 parser.add_argument('--interval', metavar='interval', type=int,
                     help='interval of days to label', required=False)
+parser.add_argument('--start', metavar='start', type=int, nargs=3,
+                    help='first day to plot', required=False)
+parser.add_argument('--end', metavar='end', type=int, nargs=3,
+                    help='last day to plot', required=False)
+parser.add_argument('-split', action='store_true',
+                    help='split count by who sends', required=False)
+parser.add_argument('-direction', choices=['to','from'],
+                    help='only show given direction', required=False)
 
 args = parser.parse_args()
 
@@ -142,9 +166,26 @@ if args.percent is not None:
     percent = args.percent
 else:
     percent = 0
+
 if args.interval is not None:
     interval = args.interval
 else:
     interval = "month"
-(me, other) = queryMessages(getHandles(args.address, path), path, percent, word=args.word)
-plot(me, other, args.label, interval)
+
+if args.people is not None:
+    data = []
+    for i in range(len(args.people)/2):
+        label = args.people[2*i]
+        address = args.people[2*i+1]
+        datum = queryMessages(getHandles(address, path),
+                              path, args.words, args.split, args.direction,
+                              args.start, args.end)
+        if args.split:
+            (me, other) = datum
+            data.append(("me to {}".format(label), me))
+            data.append(("{} to me".format(label), other))
+        else:
+            if args.direction is not None:
+                label = "sent {} {}".format(args.direction, label)
+            data.append((label, datum))
+    plot(data, interval)
